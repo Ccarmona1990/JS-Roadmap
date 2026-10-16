@@ -433,6 +433,41 @@ nav {
   text-transform: uppercase; margin-top: 3rem;
 }
 .lesson-complete-btn:hover { transform: translateY(-3px); box-shadow: 0 0 30px rgba(0,255,136,0.5); }
+/* Lesson prev/next nav */
+.lesson-nav-bar {
+  display: flex; gap: 1rem; margin-top: 1.2rem;
+}
+.lesson-nav-btn {
+  flex: 1; display: flex; align-items: center; gap: 0.8rem;
+  padding: 0.85rem 1.2rem;
+  background: var(--bg-glass); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius); cursor: pointer;
+  transition: var(--transition); backdrop-filter: blur(6px);
+  font-family: var(--font-body); color: var(--text-primary);
+  text-align: left; min-width: 0;
+}
+.lesson-nav-btn:hover:not(:disabled) {
+  border-color: var(--border-glow);
+  background: rgba(0,212,255,0.08);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-neon);
+}
+.lesson-nav-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.lesson-nav-btn.next { flex-direction: row-reverse; text-align: right; }
+.lesson-nav-arrow {
+  font-size: 1.3rem; flex-shrink: 0;
+  color: var(--accent-cyan);
+}
+.lesson-nav-meta {
+  font-family: var(--font-mono); font-size: 0.6rem;
+  color: var(--text-dim); text-transform: uppercase;
+  letter-spacing: 2px; margin-bottom: 0.2rem;
+}
+.lesson-nav-label {
+  font-size: 0.88rem; font-weight: 600;
+  color: var(--text-primary); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
 /* ============================================
    PRACTICE ARENA
    ============================================ */
@@ -1330,10 +1365,19 @@ function openLesson(id) {
   renderLesson(lesson);
 }
 
+function navigateLesson(id) {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  openLesson(id);
+}
+
 function renderLesson(lesson) {
   const main = document.getElementById('lesson-main');
   const catName = CATEGORIES[lesson.cat]?.label || lesson.cat;
   const challengeBlock = getLessonChallenge(lesson.id);
+  const lessonIdx  = LESSONS.findIndex(l => l.id === lesson.id);
+  const prevLesson  = LESSONS[lessonIdx - 1] || null;
+  const nextLesson  = LESSONS[lessonIdx + 1] || null;
+
   main.innerHTML = `
     <div class="lesson-title">${lesson.icon} ${lesson.title}</div>
     <div class="lesson-meta-bar">
@@ -1346,7 +1390,23 @@ function renderLesson(lesson) {
     ${challengeBlock}
     <button class="lesson-complete-btn" id="complete-btn" onclick="completeLesson('${lesson.id}', ${lesson.xp})">
       ${state.completed.includes(lesson.id) ? '✅ ALREADY COMPLETED' : '✔ MARK COMPLETE · EARN ' + lesson.xp + ' XP'}
-    </button>`;
+    </button>
+    <div class="lesson-nav-bar">
+      <button class="lesson-nav-btn prev" ${prevLesson ? `onclick="navigateLesson('${prevLesson.id}')"` : 'disabled'}>
+        <span class="lesson-nav-arrow">←</span>
+        <div>
+          <div class="lesson-nav-meta">Previous</div>
+          <div class="lesson-nav-label">${prevLesson ? prevLesson.icon + ' ' + prevLesson.title : '—'}</div>
+        </div>
+      </button>
+      <button class="lesson-nav-btn next" ${nextLesson ? `onclick="navigateLesson('${nextLesson.id}')"` : 'disabled'}>
+        <span class="lesson-nav-arrow">→</span>
+        <div>
+          <div class="lesson-nav-meta">Next</div>
+          <div class="lesson-nav-label">${nextLesson ? nextLesson.icon + ' ' + nextLesson.title : '—'}</div>
+        </div>
+      </button>
+    </div>`;
 
   // Add id anchors so the TOC buttons can scroll to each section
   const theoryEl    = main.querySelector('.theory-block');
@@ -2971,22 +3031,116 @@ function runCode(btn) {
 }
 
 function executeCode(code, outputEl) {
+  if (typeof executeCode.activeRestore === 'function') {
+    executeCode.activeRestore();
+  }
+
   const logs = [];
   const origLog = console.log;
   const origWarn = console.warn;
   const origError = console.error;
-  console.log = (...a) => { logs.push(a.map(x => stringify(x)).join(' ')); origLog(...a); };
-  console.warn = (...a) => { logs.push('⚠️ ' + a.map(x=>stringify(x)).join(' ')); origWarn(...a); };
-  console.error = (...a) => { logs.push('❌ ' + a.map(x=>stringify(x)).join(' ')); origError(...a); };
-  try {
-    eval(code);
-    outputEl.textContent = logs.length ? logs.join('\n') : '// (no output)';
-    outputEl.className = 'code-output';
-  } catch(e) {
-    outputEl.textContent = '❌ ' + e.toString();
-    outputEl.className = 'code-output error';
+  const quietMs = 1200;
+  const maxMs = 7000;
+  let quietTimer = null;
+  let maxTimer = null;
+  let restored = false;
+  let hasError = false;
+
+  const formatError = err => {
+    if (!err) return String(err);
+    // For SyntaxErrors (from eval'd code), show only the clean message — not the internal stack
+    if (err instanceof SyntaxError) return err.toString();
+    // For runtime errors, show stack but strip internal executeCode/eval frames
+    if (err.stack) {
+      const lines = err.stack.split('\n').filter(l =>
+        !l.includes('executeCode') && !l.includes('runLessonChallenge') &&
+        !l.includes('checkLessonChallenge') && !l.includes('runChallenge') &&
+        !l.trim().startsWith('at eval')
+      );
+      return lines.join('\n') || err.toString();
+    }
+    return String(err);
+  };
+  const render = (emptyMessage = '// Waiting for async output...') => {
+    outputEl.textContent = logs.length ? logs.join('\n') : emptyMessage;
+    outputEl.className = hasError ? 'code-output error' : 'code-output';
+  };
+  const restore = () => {
+    if (restored) return;
+    restored = true;
+    clearTimeout(quietTimer);
+    clearTimeout(maxTimer);
+    console.log = origLog;
+    console.warn = origWarn;
+    console.error = origError;
+    if (!logs.length && !hasError) outputEl.textContent = '// (no output)';
+    if (executeCode.activeRestore === restore) executeCode.activeRestore = null;
+  };
+  const scheduleRestore = () => {
+    clearTimeout(quietTimer);
+    quietTimer = setTimeout(restore, quietMs);
+  };
+  const captureLog = (...a) => {
+    logs.push(a.map(x => stringify(x)).join(' '));
+    render();
+    scheduleRestore();
+    origLog(...a);
+  };
+  const captureWarn = (...a) => {
+    logs.push('Warning: ' + a.map(x => stringify(x)).join(' '));
+    render();
+    scheduleRestore();
+    origWarn(...a);
+  };
+  const captureError = (...a) => {
+    hasError = true;
+    logs.push('Error: ' + a.map(x => stringify(x)).join(' '));
+    render();
+    scheduleRestore();
+    origError(...a);
+  };
+
+  console.log = captureLog;
+  console.warn = captureWarn;
+  console.error = captureError;
+  executeCode.activeRestore = restore;
+  render('// Running...');
+
+  // Check for unfilled ___ placeholders before running
+  if (/(?<!['"`\w])___(?!['"`\w])/.test(code)) {
+    hasError = true;
+    logs.push('⚠️  Fill in the blanks (___) before running!');
+    render();
+    restore();
+    return;
   }
-  console.log = origLog; console.warn = origWarn; console.error = origError;
+
+  try {
+    const result = eval(code);
+    render(logs.length ? undefined : '// Waiting for async output...');
+    if (result && typeof result.then === 'function') {
+      result.then(
+        value => {
+          if (value !== undefined) logs.push('Resolved: ' + stringify(value));
+          render();
+          scheduleRestore();
+        },
+        err => {
+          hasError = true;
+          logs.push('Error: ' + formatError(err));
+          render();
+          scheduleRestore();
+        }
+      );
+    }
+    scheduleRestore();
+    maxTimer = setTimeout(restore, maxMs);
+  } catch(e) {
+    hasError = true;
+    logs.push('Error: ' + formatError(e));
+    render();
+    restore();
+  }
 }
 
 function stringify(val) {

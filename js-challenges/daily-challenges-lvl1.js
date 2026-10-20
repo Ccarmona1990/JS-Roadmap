@@ -670,7 +670,6 @@ function shoppingCart(arr){
     if(!Array.isArray(arr) || arr.length === 0) return 'Please enter a valid Array';
     if(arr.some(obj=>isInvalidObject(obj))) return 'Please enter valid Objects in the array';
     return arr.reduce((acc,{price,quantity})=>acc+(price*quantity),0);
-
 }
 console.log(shoppingCart(productmkr(products)))
 

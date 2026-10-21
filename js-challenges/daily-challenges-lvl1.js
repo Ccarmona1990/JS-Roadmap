@@ -673,66 +673,151 @@ function shoppingCart(arr){
 }
 console.log(shoppingCart(productmkr(products)));
 
-const character1 = {
-    name: 'Shadow Night',
-    'character class': 'Assassin', 
-    health: 100,
-    strength: function(){
-        return 20 * this.level; 
-    },
-    mana: 50,
-    level: 1,
-    weapon: 'dagger',
-    attack: function (enemy) {
-        if(enemy.health < 0){
+function capitalizeFirstLetter (str){
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+const potions = {
+    potion20HP: ['potion20HP',20],
+    potion30HP: ['potion30HP',30],
+    potion40HP: ['potion40HP',40],
+    potion50HP: ['potion50HP',50],
+    potion60HP: ['potion60HP',60],
+    potion80HP: ['potion80HP',80],
+    potion100HP: ['potion100HP',100],
+}
+
+class CharacterHero {
+    constructor(name,characterClass){
+        this.name = name;
+        this.characterClass = characterClass;
+        this.currHP = 100;
+        this.maxHP = 100;
+        this.mana = 50;
+        this.level = 1;
+        this.strength = 20;
+        this.inventory = {potion20HP: 5}
+        this.weapon = this.weaponClassifier();
+
+        // --- NUEVAS PROPIEDADES DE EXPERIENCIA ---
+        this.exp = 0;
+        this.expToNextLevel = 100;
+    }
+
+    // --- PROPORCIONA UN ARMA DEPENDIENDO DE LA CLASE DE EL PERSONAJE ---
+    weaponClassifier(){
+        if (typeof this.characterClass !== 'string') {
+            return 'Please enter a valid in-game character class';
+        }
+        const characterClass = this.characterClass.charAt(0).toUpperCase() + this.characterClass.slice(1).toLowerCase();
+        const weaponType = {
+            'Warrior': '⚔️Sword',
+            'Archer': '🏹Bow',
+            'Mage':'🪄Staff',
+            'Assassin': '🗡️Daggers',
+            'Berserker': '🔨Hammer',
+            'Guardian': '🛡️Shield',
+            'Lancer': '🔱Spear',
+            'Wand Cleric': '✨holy'
+        }
+        return Object.hasOwn(weaponType, characterClass) 
+        ? weaponType[characterClass] 
+        : 'Please enter a valid in-game character class' ;
+    }
+    
+    // --- METODO PARA GANAR EXPERIENCIA ---
+    gainExp(amount){
+        this.exp += amount; 
+        console.log(`${this.name} has gained ${amount} experience points.`);
+
+        // Bucle por si el personaje gana tanta XP que sube varios niveles de golpe. 
+        while(this.exp >= this.expToNextLevel){
+            this.exp -= this.expToNextLevel; // Restamos la XP usada y guardamos el resultado
+            this.levelUp();
+        }
+    }
+    levelUp(){
+        this.level++;
+
+        // Aumentamos la dificultad/requisito para el siguiente nivel.
+        // (Formula simple: multiplica por 1.5)
+        this.expToNextLevel = Math.floor(this.expToNextLevel * 1.5);
+
+        // Mejoramos lastStats basicas del personaje al subir nivel
+        this.currHP += 20;
+        this.maxHP +=20;
+        this.mana += 10;
+        this.strength += 5;
+        console.log(`🎉 ¡Congratulations! ${this.name} has LEVEL UP to ${this.level}!`);
+    }
+    attack(enemy) {
+        if(enemy.currHP < 0){
             console.log(`${enemy.name} has been defeated.`) 
             return;
         } 
-        console.log(`Your opponent's HP is ${enemy.health}`);
-        enemy.health -= this.strength();
-        console.log(`${this.name} has done ${this.strength()} damage. HP is now ${enemy.health}`);
-    },
-    use: function (obj){
-        if(obj.toLowerCase() === 'potion' && this.inventory.Potion >= 1){
-            if(this.health >= 80 && this.health < 100) {
-                this.inventory.Potion-=1;
-                console.log(this.name + ' has recovered his health')
-                return this.health = 100;
+        console.log(`Your opponent's HP is ${enemy.currHP}`);
+        enemy.currHP -= this.strength;
+        console.log(`${this.name} has done ${this.strength} damage. HP is now ${enemy.currHP}`);
+    }
+    obtain(item, quantity){
+        if(typeof item !== 'string' || item.trim() === '') {console.log('Please enter a valid item string.'); return;}
+        if(isNumberInvalid(quantity)) {console.log('Please enter a valid item number.');return;}
+        this.inventory[item] = quantity; 
+    }
+    use(item,quantity){
+        const itemName = item[0];
+        const itemProperty = item[1];
+        if(!Object.hasOwn(this.inventory,itemName)){
+            console.log(`${this.name} cannot use ${itemName} because this item is not in ${this.name}'s inventory.`);
+            return;
+        }
+
+        if(itemName.toLowerCase().includes('potion') && this.inventory[itemName] >= 1){
+            const healthMinusPotion = this.maxHP-itemProperty;
+            if(this.currHP >= healthMinusPotion && this.currHP < this.maxHP) {
+                this.inventory[itemName]-=1;
+                console.log(this.name + ' has recovered his health');
+                this.currHP += (itemProperty * quantity);
+                return;
             }
-            else if(this.health < 80 ) {
-                this.inventory.Potion-=1;
+            else if(this.currHP < healthMinusPotion ) {
+                this.inventory[itemName]-=1;
                 console.log(this.name + ' has recovered his health')
-                return this.health += 20;
+                this.currHP += (itemProperty * quantity);
+                return;
             }
-            else if(this.health === 100) {
+            else if(this.currHP === this.maxHP) {
                 console.log(this.name + " already has Full health");
                 return;    
             } 
         }
-    },
-    inventory: {
-        Potion: 5,
-        dagger: 1,
     }
 }
 
 class Monster {
-    constructor(monsterType, health, level, strength){
-        this.monsterType = monsterType;
-        this.health = health;
+    constructor(name, health, level, strength){
+        this.name = name;
+        this.currHP = health;
+        this.maxHP = health;
         this.level = level; 
         this.strength = strength;
     }
     attack(enemy) {
-        if(enemy.health === 0){
+        if(enemy.currHP === 0){
             console.log(`${enemy.name} has been defeated.`) 
             return;
         }
-        console.log(`Your opponent's HP is ${enemy.health}`);
-        enemy.health -= this.strength;
-        console.log(`${this.monsterType} has done ${this.strength} damage. HP is now ${enemy.health}`);
+        console.log(`Your opponent's HP is ${enemy.currHP}`);
+        enemy.currHP -= this.strength;
+        console.log(`${this.name} has done ${this.strength} damage. HP is now ${enemy.currHP}`);
     }
 }
+
+const ShadowNight = new CharacterHero('Shadow Night','assassin');
+const hopeKnight = new CharacterHero('Hope knight', 'warrior');
+// console.log(ShadowNight);
+// console.log(hopeKnight);
+hopeKnight.use(potions.potion100HP);
 
 const goblin1 = new Monster('Goblin',60,1,10);
 const dragon = new Monster('Dragon', 200, 5, 40);
@@ -740,14 +825,6 @@ const dragon = new Monster('Dragon', 200, 5, 40);
 function fight(opponent1, opponent2){
 
     while(opponent1.health > 0 && opponent2.health > 0){
-        // Opponent 2 turn 
-        // Opponent 2 attacks
-        opponent2.attack(opponent1);
-        if(opponent1.health <= 0){
-            console.log(`${opponent2.monsterType} has won the fight!`)
-            return;
-        } 
-
         // Opponent 1 turn 
         // Opponent 1 Attacks
         opponent1.attack(opponent2);
@@ -758,8 +835,15 @@ function fight(opponent1, opponent2){
          if(opponent1.health < 50){
             opponent1.use('potion');
         }
+
+        // Opponent 2 turn 
+        // Opponent 2 attacks
+        opponent2.attack(opponent1);
+        if(opponent1.health <= 0){
+            console.log(`${opponent2.monsterType} has won the fight!`)
+            return;
+        } 
     }
 }
-
-// fight(character1,goblin1);
-// fight(character1,dragon);
+// fight(ShadowNight,goblin1);
+// fight(ShadowNight,dragon);

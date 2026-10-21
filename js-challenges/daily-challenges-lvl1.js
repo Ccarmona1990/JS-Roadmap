@@ -714,15 +714,20 @@ class CharacterHero {
             'Warrior': '⚔️Sword',
             'Archer': '🏹Bow',
             'Mage':'🪄Staff',
-            'Assassin': '🗡️Daggers',
+            'Assassin': '🗡️Dagger',
             'Berserker': '🔨Hammer',
             'Guardian': '🛡️Shield',
             'Lancer': '🔱Spear',
             'Wand Cleric': '✨holy'
         }
-        return Object.hasOwn(weaponType, characterClass) 
-        ? weaponType[characterClass] 
-        : 'Please enter a valid in-game character class' ;
+        if(Object.hasOwn(weaponType, characterClass)){
+            this.inventory[weaponType[characterClass]] = 1;
+            return weaponType[characterClass];
+        } else {
+            console.log('Please enter a valid in-game character class');
+            return;
+        }
+
     }
     
     // --- METODO PARA GANAR EXPERIENCIA ---
@@ -817,7 +822,7 @@ const ShadowNight = new CharacterHero('Shadow Night','assassin');
 const hopeKnight = new CharacterHero('Hope knight', 'warrior');
 // console.log(ShadowNight);
 // console.log(hopeKnight);
-hopeKnight.use(potions.potion100HP);
+// hopeKnight.use(potions.potion100HP);
 
 const goblin1 = new Monster('Goblin',60,1,10);
 const dragon = new Monster('Dragon', 200, 5, 40);

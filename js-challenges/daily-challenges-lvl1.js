@@ -671,5 +671,95 @@ function shoppingCart(arr){
     if(arr.some(obj=>isInvalidObject(obj))) return 'Please enter valid Objects in the array';
     return arr.reduce((acc,{price,quantity})=>acc+(price*quantity),0);
 }
-console.log(shoppingCart(productmkr(products)))
+console.log(shoppingCart(productmkr(products)));
 
+const character1 = {
+    name: 'Shadow Night',
+    'character class': 'Assassin', 
+    health: 100,
+    strength: function(){
+        return 20 * this.level; 
+    },
+    mana: 50,
+    level: 1,
+    weapon: 'dagger',
+    attack: function (enemy) {
+        if(enemy.health < 0){
+            console.log(`${enemy.name} has been defeated.`) 
+            return;
+        } 
+        console.log(`Your opponent's HP is ${enemy.health}`);
+        enemy.health -= this.strength();
+        console.log(`${this.name} has done ${this.strength()} damage. HP is now ${enemy.health}`);
+    },
+    use: function (obj){
+        if(obj.toLowerCase() === 'potion' && this.inventory.Potion >= 1){
+            if(this.health >= 80 && this.health < 100) {
+                this.inventory.Potion-=1;
+                console.log(this.name + ' has recovered his health')
+                return this.health = 100;
+            }
+            else if(this.health < 80 ) {
+                this.inventory.Potion-=1;
+                console.log(this.name + ' has recovered his health')
+                return this.health += 20;
+            }
+            else if(this.health === 100) {
+                console.log(this.name + " already has Full health");
+                return;    
+            } 
+        }
+    },
+    inventory: {
+        Potion: 5,
+        dagger: 1,
+    }
+}
+
+class Monster {
+    constructor(monsterType, health, level, strength){
+        this.monsterType = monsterType;
+        this.health = health;
+        this.level = level; 
+        this.strength = strength;
+    }
+    attack(enemy) {
+        if(enemy.health === 0){
+            console.log(`${enemy.name} has been defeated.`) 
+            return;
+        }
+        console.log(`Your opponent's HP is ${enemy.health}`);
+        enemy.health -= this.strength;
+        console.log(`${this.monsterType} has done ${this.strength} damage. HP is now ${enemy.health}`);
+    }
+}
+
+const goblin1 = new Monster('Goblin',60,1,10);
+const dragon = new Monster('Dragon', 200, 5, 40);
+
+function fight(opponent1, opponent2){
+
+    while(opponent1.health > 0 && opponent2.health > 0){
+        // Opponent 2 turn 
+        // Opponent 2 attacks
+        opponent2.attack(opponent1);
+        if(opponent1.health <= 0){
+            console.log(`${opponent2.monsterType} has won the fight!`)
+            return;
+        } 
+
+        // Opponent 1 turn 
+        // Opponent 1 Attacks
+        opponent1.attack(opponent2);
+        if(opponent2.health <= 0){
+            console.log(`${opponent1.name} has won the fight!`)
+            return;
+        }
+         if(opponent1.health < 50){
+            opponent1.use('potion');
+        }
+    }
+}
+
+// fight(character1,goblin1);
+// fight(character1,dragon);

@@ -71,7 +71,7 @@ const setTarea = e =>{
 
 const pintarTareas = ()=>{
     // Sends the tasks object to the localstorage for continous use. 
-    localStorage.setItem('tareas',JSON.stringify(tareas)); // We cannot send objects to the local storage buy we can send json file which are basically just strings
+    localStorage.setItem('tareas',JSON.stringify(tareas)); // We cannot send objects to the local storage but we can send a json file which is just a string
 
     // Checks that there aren't any tasks and if so shows a message on the screen
     if(Object.values(tareas).length === 0){

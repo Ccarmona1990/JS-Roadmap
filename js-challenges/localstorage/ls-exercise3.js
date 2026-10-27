@@ -41,20 +41,22 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 favoriteForm.addEventListener('submit',(e)=>{
     e.preventDefault();
-    console.log(e);
     const submitter = e.submitter;
     favoriteInput.focus();
-    if(submitter.id === 'add-favorite'){
+    if(submitter.id === 'add-favorite' && isCategorySelected && currCategory){
         favoriteAdder();
-    } else if (submitter.id === 'add-category'){
+    } else if (submitter.id === 'add-category' && !isCategorySelected){
         categoryAdder();
     }
 })
 btnSection2.addEventListener('click',(e)=>{
-    //if(!Object.keys(favoriteObj).includes(e.target.id))return;
-
+    if(e.target.tagName.toLowerCase() !== 'input')return;
     categorySelector(e);
-    console.log(e);
+})
+favoritesList.addEventListener('click',(e)=>{
+    if(!e.target.classList.contains('fa-solid')) return;
+    console.log(e.target)
+    itemRemover(e)
 })
 
 function displayCategorySelectors(){
@@ -63,7 +65,9 @@ function displayCategorySelectors(){
         const input = clone.querySelector('input');
         const label = clone.querySelector('label');
         label.id = category;
+        label.htmlFor = category;
         input.id = category;
+        input.value = category;
         label.textContent = category;
         favBtnFragment.appendChild(clone);
     })
@@ -71,49 +75,67 @@ function displayCategorySelectors(){
 }
 function categorySelector(e){
     const element = e.target;
-    if(element.classList.contains('btn-success')){
-        element.classList.toggle('selected');
-        element.classList.replace('btn-success','btn-danger');
-        currCategory = element.id;
-        isCategorySelected = true;
-    }
-
+    isCategorySelected = element.checked;
+    currCategory = element.id;
+    favoriteInput.focus();
 }
 
 function categoryAdder(){
     if(favoriteInput.value.trim() === '')return;
     favoriteObj[favoriteInput.value] = [];
-    displayCategories();
-    if(localStorage.getItem(localStorageKey)){
-        const keys = Object.keys(JSON.parse(localStorage.getItem(localStorageKey)))
-        if(!keys.includes(favoriteInput.value)){
-            localStorage.setItem(localStorageKey,JSON.stringify(favoriteObj));
-        }
-    }
     localStorage.setItem(localStorageKey,JSON.stringify(favoriteObj));
+    displayCategories();
+    favoriteForm.reset();
 }
 
 function displayCategories(){
+    favoritesList.innerHTML=''
     Object.keys(favoriteObj).forEach((category)=>{
         const clone = favoriteCardTemplate.cloneNode(true);
-        const favElementListTemplate = clone.getElementById('favElementList-template').content;
-        const favElementList = clone.getElementById('fav-elements');
-        displayFavElements(category, favElementListTemplate, favElementList)
+        displayFavElements(category, clone)
         clone.querySelector('h2>span').textContent = category;
         categoryFragment.appendChild(clone);
     })
     favoritesList.appendChild(categoryFragment);
 }
 
-function displayFavElements(category, template, elementList ){
+function displayFavElements(category, clone){
+    const template = clone.getElementById('favElementList-template').content;
+    const elementList = clone.getElementById('fav-elements');
+
     favoriteObj[category].forEach((favElement)=>{
         const cloneFavElement = template.cloneNode(true);
+        const tools = cloneFavElement.querySelectorAll('.fa-solid');
+        tools.forEach(item =>item.dataset.id = category)
+
         cloneFavElement.querySelector('.favElement').textContent = favElement;
         favElementsFragment.appendChild(cloneFavElement);
     })
     elementList.appendChild(favElementsFragment);
 }
-
 function favoriteAdder(){
-
+    const value = favoriteInput.value; 
+    if(value.trim() === '')return;
+    favoriteObj[currCategory].push(value);
+    localStorage.setItem(localStorageKey,JSON.stringify(favoriteObj));
+    displayCategories();
+    favoriteForm.reset();
 }
+
+function itemRemover(e){
+    const elementToRemove = e.target.previousElementSibling.textContent;
+    const favArrs = Object.values(favoriteObj)
+    
+    for (const arrs of favArrs){
+        if(arrs.includes(elementToRemove)){
+            const index = arrs.indexOf(elementToRemove);
+            if(index !== -1){
+                arrs.splice(index,1);
+                return;
+            }
+        }
+    }
+    localStorage.setItem(localStorageKey,JSON.stringify(favoriteObj));
+    displayCategories();
+}
+
